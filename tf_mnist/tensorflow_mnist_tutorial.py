@@ -10,39 +10,58 @@ mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
 # create Tensorflow interactive session
 sess = tf.InteractiveSession()
 
-########################
-# SINGLE LAYER NETWORK #
-########################
+learning_rate = 1e-3
+batch_size = 100
+num_epochs = 15
+num_batches = mnist.train.num_examples / batch_size
 
 # create input, excpected output placeholders (can replace with variable number of input / output vectors)
 x = tf.placeholder(tf.float32, shape=[None, 784])
 y_ = tf.placeholder(tf.float32, shape=[None, 10])
 
 # create weights, biases variables
-W = tf.Variable(tf.zeros([784,10]))
-b = tf.Variable(tf.zeros([10]))
+W1 = tf.Variable(tf.random_normal([784, 512]))
+b1 = tf.Variable(tf.random_normal([512]))
+
+W2 = tf.Variable(tf.random_normal([512, 256]))
+b2 = tf.Variable(tf.random_normal([256]))
+
+W3 = tf.Variable(tf.random_normal([256, 10]))
+b3 = tf.Variable(tf.random_normal([10]))
+
+# define y in terms of placeholder x (input) and variables W, b (weights, biases)
+h1 = tf.nn.relu(tf.add(tf.matmul(x, W1), b1))
+h2 = tf.nn.relu(tf.add(tf.matmul(h1, W2), b2))
+y = tf.add(tf.matmul(h2, W3), b3)
+
+# define cross-entropy loss (mean of softmax cross entropy with logits / stable version of cross-entropy)
+cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y))
+
+# define a single training step using the gradient descent optimization, minimizing the cross-entropy loss
+optimizer = tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy)
 
 # initialize variables with parameters passed as arguments
 sess.run(tf.global_variables_initializer())
 
-# define y in terms of placeholder x (input) and variables W, b (weights, biases 
-y = tf.matmul(x,W) + b
-
-# define cross-entropy loss (mean of softmax cross entropy with logits / stable version of cross-entropy)
-cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y, y_))
-
-# define a single training step using the gradient descent optimization, minimizing the cross-entropy loss
-train_step = tf.train.GradientDescentOptimizer(0.5).minimize(cross_entropy)
-
-# perform training for 1,000 iterations
-for i in xrange(1000):
-    # get a minibatch of training data (100 samples)
-    batch = mnist.train.next_batch(100)
-    # do training step on the sampled minibatch
-    train_step.run(feed_dict={x : batch[0], y_ : batch[1]})
+print '\n'
+for i in xrange(num_epochs):
+    print '- Epoch :', i + 1
+    average_cost = 0.0
     
+    for j in xrange(num_batches):
+        # get a minibatch of training data (100 samples)
+        batch = mnist.train.next_batch(batch_size)
+        # do training step on the sampled minibatch
+        _, c = sess.run([optimizer, cross_entropy], feed_dict={x : batch[0], y_ : batch[1]})
+
+        average_cost += c / num_batches
+
+    print '\tcost :', '{:.9f}'.format(average_cost)
+
+print '\n'
+
 # define a boolean function which tells us if we've made correct predictions or not
-correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(y_,1))
+correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
 
 # create accuracy function (mean value of numeric-cast output of correct_prediction function)
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
@@ -156,7 +175,7 @@ b_fc2 = bias_variable([10])
 y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
 
 # redefining the cross-entropy function
-cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y_conv, y_))
+cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_conv))
 
 # redefining the training step (use Adam optimization method with initial step size of 1*10^-4
 train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
